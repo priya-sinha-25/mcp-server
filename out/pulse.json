@@ -1,0 +1,144 @@
+{
+  "run_timestamp": "2026-06-12T17:47:07.023154Z",
+  "week_label": "2026-W23",
+  "validation_accepted": true,
+  "validation_reasons": [],
+  "sample_metadata": {
+    "pre_sample_size": 1000,
+    "final_sample_size": 139,
+    "seed": 42,
+    "weeks_covered": [
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "neg_cap": 5,
+    "neu_cap": 2,
+    "pos_cap": 4
+  },
+  "pulse": {
+    "week_label": "2026-W23",
+    "top_themes": [
+      {
+        "theme_id": "theme_1",
+        "label": "High Brokerage Charges",
+        "description": "Users complain about high brokerage charges, which they feel are eating into their profits or causing them losses.",
+        "review_ids": [
+          "play_store_3f1343390d41380d",
+          "play_store_2459d58da8db8448",
+          "play_store_07ef4188c81c794c",
+          "play_store_a4338e774b6591a9",
+          "play_store_34a612b0195b3e77"
+        ]
+      },
+      {
+        "theme_id": "theme_2",
+        "label": "Technical Issues",
+        "description": "Users report various technical issues such as glitches, slow execution, and freezing of the app, which hinder their trading experience.",
+        "review_ids": [
+          "play_store_f07329c4ebb0a869",
+          "play_store_53967345d8859fde",
+          "play_store_2851789a3709a7cb",
+          "play_store_76ae6145e4d2f34b",
+          "play_store_3c4c8a1ce9b38223"
+        ]
+      },
+      {
+        "theme_id": "theme_3",
+        "label": "Poor Customer Support",
+        "description": "Users express dissatisfaction with the customer support provided by the app, citing unhelpful responses, long wait times, and lack of resolution to their issues.",
+        "review_ids": [
+          "play_store_fb41edd0b26b4583",
+          "play_store_21dd62ac42410170",
+          "play_store_8aa210db96fd45bc",
+          "play_store_6533ecd84a93eb2e",
+          "play_store_732a156aa38ca05f"
+        ]
+      }
+    ],
+    "quotes": [
+      "fraud application, there minimum charges increased to rs 5, for 100 rs share they charge minimum 5rs",
+      "irresponsible customer agent.. call live agent regarding glitch report ...agent cut call purposefully..and never call back",
+      "maximum technical glitch. unable to connect with customer care."
+    ],
+    "actions": [
+      "Reduce brokerage charges to stay competitive",
+      "Improve app stability and fix technical issues",
+      "Enhance customer support with trained staff and faster response times"
+    ],
+    "headline": "High Charges, Tech Issues",
+    "word_count": 139
+  },
+  "all_themes": [
+    {
+      "theme_id": "theme_1",
+      "label": "High Brokerage Charges",
+      "description": "Users complain about high brokerage charges, which they feel are eating into their profits or causing them losses.",
+      "review_ids": [
+        "play_store_3f1343390d41380d",
+        "play_store_2459d58da8db8448",
+        "play_store_07ef4188c81c794c",
+        "play_store_a4338e774b6591a9",
+        "play_store_34a612b0195b3e77"
+      ]
+    },
+    {
+      "theme_id": "theme_2",
+      "label": "Technical Issues",
+      "description": "Users report various technical issues such as glitches, slow execution, and freezing of the app, which hinder their trading experience.",
+      "review_ids": [
+        "play_store_f07329c4ebb0a869",
+        "play_store_53967345d8859fde",
+        "play_store_2851789a3709a7cb",
+        "play_store_76ae6145e4d2f34b",
+        "play_store_3c4c8a1ce9b38223"
+      ]
+    },
+    {
+      "theme_id": "theme_3",
+      "label": "Poor Customer Support",
+      "description": "Users express dissatisfaction with the customer support provided by the app, citing unhelpful responses, long wait times, and lack of resolution to their issues.",
+      "review_ids": [
+        "play_store_fb41edd0b26b4583",
+        "play_store_21dd62ac42410170",
+        "play_store_8aa210db96fd45bc",
+        "play_store_6533ecd84a93eb2e",
+        "play_store_732a156aa38ca05f"
+      ]
+    },
+    {
+      "theme_id": "theme_4",
+      "label": "App Interface and Features",
+      "description": "Users provide feedback on the app's interface and features, suggesting improvements such as adding new features, improving chart functionality, and enhancing user experience.",
+      "review_ids": [
+        "play_store_ef2a634b929e6bfb",
+        "play_store_bd69c00209eb2f92",
+        "play_store_77c093bf09d00606",
+        "play_store_4677d245b143bc1f",
+        "play_store_048e757394c80605"
+      ]
+    },
+    {
+      "theme_id": "theme_5",
+      "label": "Withdrawal and Account Issues",
+      "description": "Users face issues with withdrawing money, account restrictions, and other account-related problems, which cause frustration and mistrust.",
+      "review_ids": [
+        "play_store_a15a24b0bdf2dd8a",
+        "play_store_d5777abcc1d2a382",
+        "play_store_732a156aa38ca05f",
+        "play_store_dcd14af1a850550b",
+        "play_store_0b394962d33463b9"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+﻿# Weekly Review Pulse — product configuration
+# See docs/docs/decision.md for format and dedupe decisions (DEC-007, DEC-008).
+
+product:
+  name: "Groww"
+
+ingest:
+  # Lookback within milestone bounds (8–12 weeks); inclusive of boundary dates (UTC).
+  lookback_weeks: 12
+  min_lookback_weeks: 8
+  max_lookback_weeks: 12
+  # Keep reviews with MORE than this many words in body (6 => at least 7 words).
+  min_word_count: 6
+  # Drop non-English reviews (Hindi, Tamil, etc.); emojis stripped from text.
+  english_only: true
+  # Cross-platform dedupe: same normalized body within this many calendar days.
+  cross_platform_dedupe_days: 1
+
+sampling:
+  # Step 1: proportional pre-sample cap (working-set size before stratified sampling).
+  pre_sample_n: 1000
+  # Step 2: per-tier per-week caps (DEC-012).
+  neg_cap: 5    # negative tier (≤2★)
+  neu_cap: 2    # neutral tier (3★)
+  pos_cap: 4    # positive tier (4–5★)
+  seed: 42
+
+groq:
+  # Pinned model (DEC-011). Update decision.md if changed.
+  model: "llama-3.3-70b-versatile"
+  stage_a_temperature: 0.2
+  stage_b_temperature: 0.5
+  max_themes: 5
+  max_retries: 2
+  # Abort Stage B retry if daily token headroom drops below this (DEC-012).
+  min_tpd_headroom: 3000
+
+platforms:
+  app_store:
+    # App Store Connect–style CSV export headers (first match wins).
+    columns:
+      date: ["Date", "date", "Review Date"]
+      rating: ["Rating", "rating", "Star Rating"]
+      title: ["Title", "title", "Review Title"]
+      body: ["Review", "review", "Body", "Review Body"]
+      username: ["Username", "username", "Reviewer Nickname"]
+      version: ["Version", "version", "App Version"]
+      country: ["Country", "country", "Country Code"]
+
+  play_store:
+    # Google Play Console reviews export headers.
+    columns:
+      date:
+        - "Review Submit Date and Time"
+        - "Review Submit Date"
+        - "date"
+      rating: ["Star Rating", "rating", "Rating"]
+      title: ["Review Title", "title", "Title"]
+      body: ["Review Text", "review", "Body", "Review"]
+      username: ["Reviewer Name", "username"]
+      version: ["App Version Name", "App Version Code", "version"]
+      device: ["Device", "device"]

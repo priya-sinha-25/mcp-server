@@ -1,0 +1,22 @@
+# Data and secrets
+data/*
+!data/.gitkeep
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
