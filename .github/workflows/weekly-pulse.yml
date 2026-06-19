@@ -64,13 +64,21 @@ jobs:
         env:
           GOOGLE_DOC_ID: ${{ secrets.GOOGLE_DOC_ID }}
           MCP_SERVER_URL: ${{ secrets.MCP_SERVER_URL }}
-        run: python scripts/run_phase3.py
+        run: |
+          python scripts/run_phase3.py || {
+            echo "::error::Google Docs publish failed. If the log mentions invalid_grant, refresh GOOGLE_TOKEN_JSON on Railway (see saksham-mcp-server/DEPLOYMENT.md)."
+            exit 1
+          }
 
       - name: Create Gmail draft
         env:
           DRAFT_RECIPIENT: ${{ secrets.DRAFT_RECIPIENT }}
           MCP_SERVER_URL: ${{ secrets.MCP_SERVER_URL }}
-        run: python scripts/run_phase4.py
+        run: |
+          python scripts/run_phase4.py || {
+            echo "::error::Gmail draft failed. If the log mentions invalid_grant, refresh GOOGLE_TOKEN_JSON on Railway (see saksham-mcp-server/DEPLOYMENT.md)."
+            exit 1
+          }
 
       - name: Upload pulse artifact
         uses: actions/upload-artifact@v4
