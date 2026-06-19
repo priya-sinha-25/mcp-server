@@ -67,9 +67,11 @@ class McpClient:
     def __init__(self, base_url: str | None = None) -> None:
         import os
         _load_dotenv()
+        env_url = (os.environ.get("MCP_SERVER_URL") or "").strip()
         self._base_url = (
-            base_url
-            or os.environ.get("MCP_SERVER_URL", self.DEFAULT_URL)
+            (base_url or "").strip()
+            or env_url
+            or self.DEFAULT_URL
         ).rstrip("/")
 
     def _post(
