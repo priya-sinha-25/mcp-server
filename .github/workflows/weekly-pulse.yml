@@ -1,0 +1,56 @@
+name: Weekly Review Pulse
+
+on:
+  schedule:
+    # Every Monday 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+concurrency:
+  group: weekly-pulse
+  cancel-in-progress: true
+
+jobs:
+  pulse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Download latest Play Store reviews
+        run: python scripts/download_groww_play_reviews.py --weeks 12
+
+      - name: Ingest and normalize
+        run: >
+          pulse-ingest data/groww/groww_play_store_reviews.csv
+          --output data/groww/normalized_reviews.json
+
+      - name: Analyze and draft pulse
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python scripts/run_phase2.py
+
+      - name: Publish to Google Docs
+        env:
+          GOOGLE_DOC_ID: ${{ secrets.GOOGLE_DOC_ID }}
+          MCP_SERVER_URL: ${{ secrets.MCP_SERVER_URL }}
+        run: python scripts/run_phase3.py
+
+      - name: Create Gmail draft
+        env:
+          DRAFT_RECIPIENT: ${{ secrets.DRAFT_RECIPIENT }}
+          MCP_SERVER_URL: ${{ secrets.MCP_SERVER_URL }}
+        run: python scripts/run_phase4.py
+
+      - name: Upload pulse artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-pulse-${{ github.run_id }}
+          path: out/pulse.json
+          if-no-files-found: error

@@ -230,12 +230,13 @@ This layer is what makes the system safe to automate: MCP calls become boring be
 
 **Configuration (non-secret):** lookback weeks, product display name, theme-ranking policy flags, retry counts.
 
-**Secrets:** OAuth tokens and MCP credentials live outside the repo—typically environment variables or secret stores consumed by the MCP host.
+**Secrets:** OAuth tokens and MCP credentials live outside the repo—typically environment variables or secret stores consumed by the MCP host. In scheduled batch mode, these are injected as [GitHub Actions repository secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions) (see §10.2).
 
 **Observability (minimum viable):**
 
 - Run identifier, ingest counts, validation outcome, Doc reference, draft reference.
 - Model identifier and prompt version if you need reproducibility for grading or audits.
+- For scheduled runs: GitHub Actions run logs and uploaded workflow artifacts (`out/pulse.json`, ingest summary).
 
 ---
 
@@ -323,11 +324,172 @@ sequenceDiagram
 
 ## 10. Deployment shapes
 
-**Interactive mode:** Operator launches the flow in an MCP-capable environment (e.g., IDE agent session). Best for demonstrations and iteration.
+The logical pipeline (ingest → sample → Groq → validate → MCP) is identical across deployment shapes. What differs is **who triggers the run**, **how fresh review data is obtained**, and **where secrets live**.
 
-**Batch mode:** Scheduler invokes the same orchestration on a cadence (weekly). Adds requirements around unattended auth refresh for MCP servers—often environment-specific.
+### 10.1 Interactive mode
 
-The logical architecture is identical; only scheduling, secrets management, and alerting differ.
+Operator launches the flow in an MCP-capable environment (e.g., IDE agent session or local CLI). Best for demonstrations, prompt tuning, and debugging validation failures.
+
+Typical local sequence:
+
+```bash
+python scripts/download_groww_play_reviews.py --weeks 12
+pulse-ingest data/groww/groww_play_store_reviews.csv --output data/groww/normalized_reviews.json
+python scripts/run_phase2.py
+python scripts/run_phase3.py
+python scripts/run_phase4.py
+```
+
+### 10.2 Batch mode — GitHub Actions scheduler (recommended)
+
+For unattended weekly delivery, **GitHub Actions** is the preferred scheduler. Each workflow run:
+
+1. **Fetches the latest public review data** — no stale CSV checked into the repo.
+2. **Executes the same phase scripts** as interactive mode.
+3. **Delivers via the hosted MCP server** (HTTP client in `run_phase3.py` / `run_phase4.py`).
+4. **Leaves an audit trail** in Actions logs and optional artifacts.
+
+This satisfies DEC-002's requirement that imports happen outside ad-hoc manual steps while keeping the pipeline reproducible.
+
+#### Why GitHub Actions
+
+| Concern | How Actions addresses it |
+|---------|--------------------------|
+| Weekly cadence | `schedule` trigger with cron (e.g. Monday 06:00 UTC) |
+| Fresh data every run | `download_groww_play_reviews.py` runs first; `data/` stays gitignored |
+| Secrets | Repository secrets → job `env` (never committed) |
+| Operator visibility | Run summary, logs, and `out/pulse.json` artifact |
+| Cost | Public repos: generous free minutes; single weekly job is negligible |
+
+#### Scheduled workflow (conceptual)
+
+```mermaid
+flowchart TB
+    subgraph trigger [Trigger]
+        CRON[cron: weekly schedule]
+        MAN[workflow_dispatch: manual re-run]
+    end
+
+    subgraph gha [GitHub Actions job]
+        SETUP[Checkout + Python + pip install]
+        DL[download_groww_play_reviews.py]
+        ING[pulse-ingest → normalized_reviews.json]
+        P2[run_phase2.py → out/pulse.json]
+        P3[run_phase3.py → Google Doc via MCP]
+        P4[run_phase4.py → Gmail draft via MCP]
+        ART[Upload artifacts + log summary]
+    end
+
+    subgraph external [External]
+        PLAY[Public Play Store listing]
+        GROQ[Groq API]
+        MCP[MCP server on Railway]
+        GOOGLE[Google Docs + Gmail]
+    end
+
+    CRON --> SETUP
+    MAN --> SETUP
+    SETUP --> DL
+    DL --> PLAY
+    DL --> ING
+    ING --> P2
+    P2 --> GROQ
+    P2 --> P3
+    P3 --> MCP
+    P3 --> GOOGLE
+    P3 --> P4
+    P4 --> MCP
+    P4 --> GOOGLE
+    P4 --> ART
+```
+
+#### Workflow file (`.github/workflows/weekly-pulse.yml`)
+
+The workflow lives in-repo but is **not** part of the core pipeline logic—it is deployment glue. A minimal shape:
+
+```yaml
+name: Weekly Review Pulse
+
+on:
+  schedule:
+    # Every Monday 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  pulse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Download latest Play Store reviews
+        run: python scripts/download_groww_play_reviews.py --weeks 12
+
+      - name: Ingest and normalize
+        run: >
+          pulse-ingest data/groww/groww_play_store_reviews.csv
+          --output data/groww/normalized_reviews.json
+
+      - name: Analyze and draft pulse
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python scripts/run_phase2.py
+
+      - name: Publish to Google Docs
+        env:
+          GOOGLE_DOC_ID: ${{ secrets.GOOGLE_DOC_ID }}
+          MCP_SERVER_URL: ${{ secrets.MCP_SERVER_URL }}
+        run: python scripts/run_phase3.py
+
+      - name: Create Gmail draft
+        env:
+          DRAFT_RECIPIENT: ${{ secrets.DRAFT_RECIPIENT }}
+          MCP_SERVER_URL: ${{ secrets.MCP_SERVER_URL }}
+        run: python scripts/run_phase4.py
+
+      - name: Upload pulse artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-pulse-${{ github.run_id }}
+          path: out/pulse.json
+          if-no-files-found: error
+```
+
+#### Required repository secrets
+
+| Secret | Used by | Notes |
+|--------|---------|-------|
+| `GROQ_API_KEY` | `run_phase2.py` | Groq console key |
+| `GOOGLE_DOC_ID` | `run_phase3.py` | Target Doc from URL |
+| `DRAFT_RECIPIENT` | `run_phase4.py` | Draft recipient (DEC-005) |
+| `MCP_SERVER_URL` | `run_phase3.py`, `run_phase4.py` | Hosted MCP base URL; omit if default Railway deploy is used |
+
+Local development continues to use `.env` (gitignored); CI uses the same variable names via GitHub Secrets.
+
+#### Operational notes
+
+- **Data freshness:** The download script paginates newest-first and stops at the configured lookback window (default 12 weeks). Every scheduled run replaces the on-runner CSV and normalized JSON—there is no dependency on committed export files.
+- **MCP auth:** The MCP server must accept requests from GitHub-hosted runners without interactive OAuth. Auth is owned by the deployed MCP instance (Railway), not the workflow file.
+- **Partial failure:** If Phase 3 succeeds but Phase 4 fails, the Doc is already updated; the workflow should fail visibly so the operator can send manually. Aligns with §9 Gmail MCP failure behavior.
+- **Manual re-run:** `workflow_dispatch` lets an operator trigger the same pipeline on demand (e.g. after a prompt change) without waiting for cron.
+- **Rate limits:** Groq free-tier TPD (~9–10 full runs/day) is ample for one weekly job plus occasional manual runs (see §5.2).
+
+#### Alternatives considered
+
+| Option | Why not primary |
+|--------|-----------------|
+| OS cron on a laptop | Machine must stay on; secrets on disk; no shared audit log |
+| Cloud Functions / Lambda | Extra infra; same steps still need packaging and secret wiring |
+| Committed CSV in repo | Stale reviews; violates spirit of DEC-002 automation |
+
+GitHub Actions keeps scheduler, fresh-data fetch, and delivery orchestration in one place the course repo already uses.
 
 ---
 
