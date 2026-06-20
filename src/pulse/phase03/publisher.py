@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import date, datetime
 from pathlib import Path
 
 from pulse.models import DeliveryResult, ValidationResult, WeeklyPulse
 from pulse.phase03.formatter import format_pulse_for_doc
 from pulse.phase03.mcp_client import McpClient, McpError
+from pulse.phase04.email_formatter import format_date_range
 
 log = logging.getLogger(__name__)
 
@@ -48,6 +50,9 @@ def publish_pulse_to_docs(
     client: McpClient | None = None,
     doc_id: str | None = None,
     product_name: str = "Groww",
+    date_start: date | None = None,
+    date_end: date | None = None,
+    run_timestamp: datetime | None = None,
 ) -> DeliveryResult:
     """
     Append the validated pulse to the configured Google Doc via MCP.
@@ -59,6 +64,9 @@ def publish_pulse_to_docs(
         client:       Optional McpClient (constructed from env if not supplied).
         doc_id:       Target Google Doc ID. Falls back to GOOGLE_DOC_ID env var.
         product_name: Display name used in the Doc header.
+        date_start:   Inclusive start of the review window.
+        date_end:     Inclusive end of the review window.
+        run_timestamp: Timestamp shown in the Doc body; defaults to now.
 
     Returns:
         DeliveryResult with doc_id and doc_url filled in.
@@ -77,10 +85,25 @@ def publish_pulse_to_docs(
     mcp = client or McpClient()
     target_doc_id = doc_id or _load_doc_id()
 
-    content = format_pulse_for_doc(pulse, product_name=product_name)
+    if date_start is None or date_end is None:
+        raise PublishError(
+            "date_start and date_end are required for Google Docs publish "
+            "(review window bounds, e.g. from pulse.json date_range)."
+        )
+
+    date_range = format_date_range(date_start, date_end)
+    content = format_pulse_for_doc(
+        pulse,
+        product_name=product_name,
+        date_range=date_range,
+        run_timestamp=run_timestamp,
+    )
 
     log.info(
-        "Publishing pulse %s to Google Doc %s…", pulse.week_label, target_doc_id
+        "Publishing pulse %s (%s) to Google Doc %s…",
+        pulse.week_label,
+        date_range,
+        target_doc_id,
     )
 
     try:

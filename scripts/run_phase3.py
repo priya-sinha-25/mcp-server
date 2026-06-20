@@ -17,6 +17,7 @@ import argparse
 import json
 import logging
 import sys
+from datetime import date, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,14 +35,30 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
-def load_pulse_from_file(path: Path) -> tuple[WeeklyPulse, ValidationResult]:
-    """Load a pulse.json written by run_phase2.py."""
+def load_pulse_from_file(
+    path: Path,
+) -> tuple[WeeklyPulse, ValidationResult, date | None, date | None, datetime | None]:
+    """Load pulse.json written by run_phase2.py."""
     with path.open(encoding="utf-8") as f:
         data = json.load(f)
 
     accepted = data.get("validation_accepted", False)
     reasons = data.get("validation_reasons", [])
     validation = ValidationResult(accepted=accepted, reasons=reasons)
+
+    date_start: date | None = None
+    date_end: date | None = None
+    raw_range = data.get("date_range")
+    if isinstance(raw_range, dict):
+        if raw_range.get("start"):
+            date_start = date.fromisoformat(raw_range["start"])
+        if raw_range.get("end"):
+            date_end = date.fromisoformat(raw_range["end"])
+
+    run_timestamp: datetime | None = None
+    raw_ts = data.get("run_timestamp")
+    if raw_ts:
+        run_timestamp = datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
 
     p = data["pulse"]
     top_themes = [
@@ -61,7 +78,23 @@ def load_pulse_from_file(path: Path) -> tuple[WeeklyPulse, ValidationResult]:
         headline=p["headline"],
         word_count=p.get("word_count", 0),
     )
-    return pulse, validation
+    return pulse, validation, date_start, date_end, run_timestamp
+
+
+def derive_date_range_from_reviews(path: Path) -> tuple[date, date]:
+    with path.open(encoding="utf-8") as f:
+        data = json.load(f)
+    reviews_raw = data.get("reviews", data) if isinstance(data, dict) else data
+    dates = [date.fromisoformat(item["review_date"]) for item in reviews_raw]
+    return min(dates), max(dates)
+
+
+def save_doc_url(path: Path, doc_url: str) -> None:
+    with path.open(encoding="utf-8") as f:
+        data = json.load(f)
+    data["doc_url"] = doc_url
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 
 def main() -> None:
@@ -76,6 +109,11 @@ def main() -> None:
         default=None,
         help="Google Doc ID to publish into (overrides GOOGLE_DOC_ID in .env)",
     )
+    parser.add_argument(
+        "--reviews",
+        default="data/groww/normalized_reviews.json",
+        help="Path to normalized reviews for date-range fallback (default: data/groww/normalized_reviews.json)",
+    )
     args = parser.parse_args()
 
     pulse_path = ROOT / args.pulse
@@ -84,7 +122,18 @@ def main() -> None:
         sys.exit(1)
 
     log.info("Loading pulse from %s", pulse_path)
-    pulse, validation = load_pulse_from_file(pulse_path)
+    pulse, validation, date_start, date_end, run_timestamp = load_pulse_from_file(pulse_path)
+
+    if date_start is None or date_end is None:
+        reviews_path = ROOT / args.reviews
+        if not reviews_path.is_file():
+            log.error(
+                "Pulse file has no date_range and reviews file not found: %s",
+                reviews_path,
+            )
+            sys.exit(1)
+        date_start, date_end = derive_date_range_from_reviews(reviews_path)
+        log.info("Derived date range from reviews: %s to %s", date_start, date_end)
 
     log.info(
         "Pulse: week=%s  validation=%s  word_count=%d",
@@ -107,6 +156,9 @@ def main() -> None:
             validation=validation,
             client=client,
             doc_id=args.doc_id or None,
+            date_start=date_start,
+            date_end=date_end,
+            run_timestamp=run_timestamp,
         )
     except UnvalidatedPulseError as exc:
         log.error("Validation guard blocked publish: %s", exc)
@@ -114,6 +166,10 @@ def main() -> None:
     except PublishError as exc:
         log.error("Publish failed: %s", exc)
         sys.exit(1)
+
+    if delivery.doc_url:
+        save_doc_url(pulse_path, delivery.doc_url)
+        log.info("Saved doc_url to %s", pulse_path)
 
     print("\n" + "─" * 60)
     print("  PHASE 3 COMPLETE")

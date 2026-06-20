@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pulse.models import ThemeCluster, WeeklyPulse
 from pulse.phase03.formatter import format_pulse_for_doc
+from pulse.phase04.email_formatter import format_email_body
+
+DATE_RANGE = "2026-02-15 to 2026-05-10"
+RUN_TS = datetime(2026, 5, 15, 14, 56, 37)
 
 
 def _make_pulse() -> WeeklyPulse:
@@ -33,51 +39,75 @@ def _make_pulse() -> WeeklyPulse:
 
 
 class TestFormatPulseForDoc:
-    def test_contains_week_label(self):
-        text = format_pulse_for_doc(_make_pulse())
-        assert "2026-W23" in text
+    def test_matches_email_body_without_doc_link(self):
+        pulse = _make_pulse()
+        doc_text = format_pulse_for_doc(
+            pulse, date_range=DATE_RANGE, run_timestamp=RUN_TS
+        )
+        email_text = format_email_body(
+            pulse,
+            date_range=DATE_RANGE,
+            run_timestamp=RUN_TS,
+            include_doc_link=False,
+        )
+        assert doc_text == email_text
+
+    def test_contains_date_range_not_week_label_only(self):
+        text = format_pulse_for_doc(
+            _make_pulse(), date_range=DATE_RANGE, run_timestamp=RUN_TS
+        )
+        assert DATE_RANGE in text
+        assert f"Weekly review pulse for Groww ({DATE_RANGE})." in text
 
     def test_contains_product_name(self):
-        text = format_pulse_for_doc(_make_pulse(), product_name="Groww")
+        text = format_pulse_for_doc(
+            _make_pulse(), product_name="Groww", date_range=DATE_RANGE, run_timestamp=RUN_TS
+        )
         assert "Groww" in text
 
     def test_contains_headline(self):
-        text = format_pulse_for_doc(_make_pulse())
+        text = format_pulse_for_doc(
+            _make_pulse(), date_range=DATE_RANGE, run_timestamp=RUN_TS
+        )
         assert "High charges and technical issues" in text
 
     def test_contains_all_three_theme_labels(self):
-        text = format_pulse_for_doc(_make_pulse())
-        assert "High Brokerage Charges" in text
-        assert "Technical Issues" in text
-        assert "Poor Customer Support" in text
+        text = format_pulse_for_doc(
+            _make_pulse(), date_range=DATE_RANGE, run_timestamp=RUN_TS
+        )
+        assert "High Brokerage Charges:" in text
+        assert "Technical Issues:" in text
+        assert "Poor Customer Support:" in text
 
     def test_contains_all_three_quotes(self):
-        text = format_pulse_for_doc(_make_pulse())
+        text = format_pulse_for_doc(
+            _make_pulse(), date_range=DATE_RANGE, run_timestamp=RUN_TS
+        )
         assert "fraud application" in text
         assert "agent cut call purposefully" in text
         assert "maximum technical glitch" in text
 
     def test_contains_all_three_actions(self):
-        text = format_pulse_for_doc(_make_pulse())
+        text = format_pulse_for_doc(
+            _make_pulse(), date_range=DATE_RANGE, run_timestamp=RUN_TS
+        )
         assert "Reduce brokerage charges" in text
         assert "Improve app stability" in text
         assert "Enhance customer support" in text
 
-    def test_contains_word_count(self):
-        text = format_pulse_for_doc(_make_pulse())
-        assert "139" in text
-        assert "250" in text
-
     def test_sections_in_order(self):
-        text = format_pulse_for_doc(_make_pulse())
-        summary_pos = text.index("Summary:")
-        themes_pos = text.index("TOP THEMES")
-        quotes_pos = text.index("VERBATIM USER QUOTES")
-        actions_pos = text.index("ACTION IDEAS")
-        assert summary_pos < themes_pos < quotes_pos < actions_pos
+        text = format_pulse_for_doc(
+            _make_pulse(), date_range=DATE_RANGE, run_timestamp=RUN_TS
+        )
+        themes_pos = text.index("Top themes:")
+        quotes_pos = text.index("User quotes:")
+        actions_pos = text.index("Action ideas:")
+        assert themes_pos < quotes_pos < actions_pos
 
     def test_returns_string(self):
-        assert isinstance(format_pulse_for_doc(_make_pulse()), str)
+        assert isinstance(
+            format_pulse_for_doc(_make_pulse(), date_range=DATE_RANGE), str
+        )
 
     def test_non_empty(self):
-        assert len(format_pulse_for_doc(_make_pulse())) > 0
+        assert len(format_pulse_for_doc(_make_pulse(), date_range=DATE_RANGE)) > 0

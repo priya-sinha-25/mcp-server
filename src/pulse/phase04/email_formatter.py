@@ -30,6 +30,7 @@ def format_email_body(
     *,
     date_range: str,
     run_timestamp: datetime | None = None,
+    include_doc_link: bool = True,
 ) -> str:
     """
     Render pulse as an email body.
@@ -53,7 +54,7 @@ def format_email_body(
         "",
     ]
 
-    if doc_url:
+    if doc_url and include_doc_link:
         lines.append(f"Canonical pulse (Google Doc): {doc_url}")
         lines.append("")
 
